@@ -24,11 +24,13 @@
 
 typedef struct joint_string {
     size_t block_size;
-    int content_length;
-    char * content;
+    int length;
+    char * data;
 } joint_string_t;
 
 joint_string_t * joint_string_alloc(size_t block_size);
+
+void joint_string_set_content(joint_string_t * string, const char * content);
 
 void joint_string_append_character(joint_string_t * string, char character);
 

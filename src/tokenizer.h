@@ -19,31 +19,56 @@
  * THE SOFTWARE.
  */
 
-#include <stdio.h>
+#ifndef joint_tokenizer_h
+#define joint_tokenizer_h
+
 #include "source_file.h"
-#include "tokenizer.h"
+#include "string.h"
 
-int main(int argc, char ** argv) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s SOURCE_FILE\n", argv[0]);
-        return 1;
-    }
+typedef struct joint_source_file_position {
+    char * path;
+    int position;
+    int line;
+    int column;
+} joint_source_file_position_t;
 
-    joint_source_file_t * source_file = joint_source_file_alloc(argv[1]);
+typedef struct joint_token {
+    enum {
+        COMMENT,
+        KEYWORD,
+        IDENTIFIER,
+        PUNCTUATOR,
+        NUMERIC_LITERAL,
+        BOOLEAN_LITERAL,
+        CHARACTER_LITERAL,
+        STRING_LITERAL,
+        NULL_LITERAL,
+        END_OF_FILE
+    } type;
 
-    if (!joint_source_file_read(source_file)) {
-        fprintf(stderr, "Unable to read file \"%s\"\n", argv[1]);
-        joint_source_file_free(source_file);
-        return 2;
-    }
+    joint_string_t * value;
 
-    joint_tokenizer_t * tokenizer = joint_tokenizer_alloc(source_file);
-    joint_tokenizer_tokenize(tokenizer);
+    joint_source_file_position_t * start_position;
+    joint_source_file_position_t * end_position;
+} joint_token_t;
 
-    joint_tokeinzer_print(tokenizer);
+typedef struct joint_tokenizer {
+    joint_source_file_t * source_file;
 
-    joint_tokenizer_free(tokenizer);
-    joint_source_file_free(source_file);
+    int current_position;
+    int current_line_number;
+    int current_line_start_position;
 
-    return 0;
-}
+    int tokens_length;
+    joint_token_t ** tokens;
+} joint_tokenizer_t;
+
+joint_tokenizer_t * joint_tokenizer_alloc(joint_source_file_t * source_file);
+
+void joint_tokenizer_tokenize(joint_tokenizer_t * tokenizer);
+
+void joint_tokeinzer_print(const joint_tokenizer_t * tokenizer);
+
+void joint_tokenizer_free(joint_tokenizer_t * tokenizer);
+
+#endif

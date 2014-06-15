@@ -22,37 +22,45 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "string.h"
 
 joint_string_t * joint_string_alloc(size_t block_size) {
     joint_string_t * string = malloc(sizeof(joint_string_t));
     assert(string);
 
-    string->content = malloc(sizeof(char) * (block_size + 1));
-    assert(string->content);
+    string->data = malloc(sizeof(char) * (block_size + 1));
+    assert(string->data);
 
     string->block_size = block_size;
-    string->content_length = 0;
-    string->content[0] = '\0';
+    string->length = 0;
+    string->data[0] = '\0';
 
     return string;
 }
 
+void joint_string_set_content(joint_string_t * string, const char * content) {
+    string->length = (int) strlen(content);
+    realloc(string->data, sizeof(char) * (string->length / string->block_size * string->block_size + string->block_size + 1));
+    assert(string->data);
+    strcpy(string->data, content);
+}
+
 void joint_string_append_character(joint_string_t * string, char character) {
-    if (string->content_length > 0 && string->content_length % string->block_size == 0) {
-        string->content = realloc(string->content, sizeof(char) * (string->content_length + string->block_size + 1));
-        assert(string->content);
+    if (string->length > 0 && string->length % string->block_size == 0) {
+        string->data = realloc(string->data, sizeof(char) * (string->length + string->block_size + 1));
+        assert(string->data);
     }
 
-    string->content[string->content_length++] = character;
-    string->content[string->content_length] = '\0';
+    string->data[string->length++] = character;
+    string->data[string->length] = '\0';
 }
 
 void joint_string_print(const joint_string_t * string) {
-    puts(string->content);
+    puts(string->data);
 }
 
 void joint_string_free(joint_string_t * string) {
-    free(string->content);
+    free(string->data);
     free(string);
 }
