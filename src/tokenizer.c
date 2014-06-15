@@ -27,16 +27,16 @@
 #include "tokenizer.h"
 
 static const char * joint_tokenizer_token_type_names[] = {
-    "COMMENT",
-    "KEYWORD",
-    "IDENTIFIER",
-    "PUNCTUATOR",
-    "NUMERIC_LITERAL",
-    "BOOLEAN_LITERAL",
-    "CHARACTER_LITERAL",
-    "STRING_LITERAL",
-    "NULL_LITERAL",
-    "END_OF_FILE"
+    "COMMENT_TOKEN",
+    "KEYWORD_TOKEN",
+    "IDENTIFIER_TOKEN",
+    "PUNCTUATOR_TOKEN",
+    "NUMERIC_LITERAL_TOKEN",
+    "BOOLEAN_LITERAL_TOKEN",
+    "CHARACTER_LITERAL_TOKEN",
+    "STRING_LITERAL_TOKEN",
+    "NULL_LITERAL_TOKEN",
+    "EOF_TOKEN"
 };
 
 static inline bool joint_tokenizer_is_whitespace(char character) {
@@ -79,7 +79,7 @@ static joint_source_file_position_t * joint_tokenizer_fixate_position(const join
     joint_source_file_position_t * position = malloc(sizeof(joint_source_file_position_t));
     assert(position);
 
-    position->path = malloc(sizeof(char) * strlen(tokenizer->source_file->path));
+    position->path = malloc(sizeof(char) * (strlen(tokenizer->source_file->path) + 1));
     assert(position->path);
     strcpy(position->path, tokenizer->source_file->path);
 
@@ -124,7 +124,7 @@ static void joint_tokenizer_lex_comment(joint_tokenizer_t * tokenizer, joint_tok
         }
     }
 
-    token->type = COMMENT;
+    token->type = COMMENT_TOKEN;
 }
 
 static void joint_tokenizer_lex_identifier(joint_tokenizer_t * tokenizer, joint_token_t * token) {
@@ -146,13 +146,13 @@ static void joint_tokenizer_lex_identifier(joint_tokenizer_t * tokenizer, joint_
     }
 
     if (strcmp(token->value->data, "let") == 0 || strcmp(token->value->data, "import") == 0 || strcmp(token->value->data, "from") == 0) {
-        token->type = KEYWORD;
+        token->type = KEYWORD_TOKEN;
     } else if (strcmp(token->value->data, "true") == 0 || strcmp(token->value->data, "false") == 0) {
-        token->type = BOOLEAN_LITERAL;
+        token->type = BOOLEAN_LITERAL_TOKEN;
     } else if (strcmp(token->value->data, "null") == 0) {
-        token->type = NULL_LITERAL;
+        token->type = NULL_LITERAL_TOKEN;
     } else {
-        token->type = IDENTIFIER;
+        token->type = IDENTIFIER_TOKEN;
     }
 }
 
@@ -174,7 +174,7 @@ static void joint_tokenizer_lex_numeric_literal(joint_tokenizer_t * tokenizer, j
         }
     }
 
-    token->type = NUMERIC_LITERAL;
+    token->type = NUMERIC_LITERAL_TOKEN;
 }
 
 static void joint_tokenizer_lex_character_literal(joint_tokenizer_t * tokenizer, joint_token_t * token) {
@@ -191,7 +191,7 @@ static void joint_tokenizer_lex_character_literal(joint_tokenizer_t * tokenizer,
     assert(joint_tokenizer_is_character_quote(character));
     tokenizer->current_position++;
 
-    token->type = CHARACTER_LITERAL;
+    token->type = CHARACTER_LITERAL_TOKEN;
 }
 
 static void joint_tokenizer_lex_string_literal(joint_tokenizer_t * tokenizer, joint_token_t * token) {
@@ -204,7 +204,7 @@ static void joint_tokenizer_lex_string_literal(joint_tokenizer_t * tokenizer, jo
 
         if (joint_tokenizer_is_string_quote(character)) {
             tokenizer->current_position++;
-            token->type = STRING_LITERAL;
+            token->type = STRING_LITERAL_TOKEN;
             return;
         } else if (joint_tokenizer_is_lite_terminator(character)) {
             tokenizer->current_position++;
@@ -244,7 +244,7 @@ static void joint_tokenizer_lex_punctuator(joint_tokenizer_t * tokenizer, joint_
         case 0x7E: // ~
             joint_string_append_character(token->value, character);
             tokenizer->current_position++;
-            token->type = PUNCTUATOR;
+            token->type = PUNCTUATOR_TOKEN;
             return;
     }
 
@@ -256,7 +256,7 @@ static void joint_tokenizer_lex_punctuator(joint_tokenizer_t * tokenizer, joint_
         if (strcmp(character3, ">>>") == 0) {
             tokenizer->current_position += 3;
             joint_string_set_content(token->value, character3);
-            token->type = PUNCTUATOR;
+            token->type = PUNCTUATOR_TOKEN;
             free(character3);
             return;
         }
@@ -271,7 +271,7 @@ static void joint_tokenizer_lex_punctuator(joint_tokenizer_t * tokenizer, joint_
         if (strcmp(character2, "!=") == 0 || (strchr("<>&|=", character2[0]) != NULL && character2[0] == character2[1])) {
             tokenizer->current_position += 2;
             joint_string_set_content(token->value, character2);
-            token->type = PUNCTUATOR;
+            token->type = PUNCTUATOR_TOKEN;
             free(character2);
             return;
         }
@@ -281,7 +281,7 @@ static void joint_tokenizer_lex_punctuator(joint_tokenizer_t * tokenizer, joint_
     if (strchr("<>=!&|", character) != NULL) {
         joint_string_append_character(token->value, character);
         tokenizer->current_position++;
-        token->type = PUNCTUATOR;
+        token->type = PUNCTUATOR_TOKEN;
         return;
     }
 
@@ -298,7 +298,7 @@ static joint_token_t * joint_tokenizer_lex(joint_tokenizer_t * tokenizer) {
     joint_tokenizer_skip_whitespaces(tokenizer);
 
     if (tokenizer->current_position >= tokenizer->source_file->content->length) {
-        token->type = END_OF_FILE;
+        token->type = EOF_TOKEN;
         token->end_position = joint_tokenizer_fixate_position(tokenizer);
         return token;
     }
@@ -353,7 +353,7 @@ void joint_tokenizer_tokenize(joint_tokenizer_t * tokenizer) {
 
         tokenizer->tokens[tokenizer->tokens_length++] = token;
 
-        if (token->type == END_OF_FILE) {
+        if (token->type == EOF_TOKEN) {
             break;
         }
     }

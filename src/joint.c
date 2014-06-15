@@ -22,8 +22,9 @@
 #include <stdio.h>
 #include "source_file.h"
 #include "tokenizer.h"
+#include "parser.h"
 
-int main(int argc, char ** argv) {
+int main(int argc, const char ** argv) {
     if (argc < 2) {
         fprintf(stderr, "Usage: %s SOURCE_FILE\n", argv[0]);
         return 1;
@@ -40,8 +41,12 @@ int main(int argc, char ** argv) {
     joint_tokenizer_t * tokenizer = joint_tokenizer_alloc(source_file);
     joint_tokenizer_tokenize(tokenizer);
 
-    joint_tokeinzer_print(tokenizer);
+    joint_parser_t * parser = joint_parser_alloc(tokenizer);
+    joint_parser_parse(parser);
 
+    joint_parser_print(parser);
+
+    joint_parser_free(parser);
     joint_tokenizer_free(tokenizer);
     joint_source_file_free(source_file);
 

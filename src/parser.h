@@ -19,56 +19,65 @@
  * THE SOFTWARE.
  */
 
-#ifndef joint_tokenizer_h
-#define joint_tokenizer_h
+#ifndef joint_parser_h
+#define joint_parser_h
 
-#include "source_file.h"
-#include "string.h"
+#include <stdbool.h>
+#include "tokenizer.h"
 
-typedef struct joint_source_file_position {
-    char * path;
-    int position;
-    int line;
-    int column;
-} joint_source_file_position_t;
+enum joint_node_type {
+    PROGRAM_NODE,
+    COMMENT_NODE,
+    IDENTIFIER_NODE,
+    LITERAL_NODE,
+    CALL_EXPRESSION_NODE,
+    IMPORT_DECLARATION_NODE,
+    VARIABLE_DECLARATION_NODE
+};
 
-typedef struct joint_token {
-    enum {
-        COMMENT_TOKEN,
-        KEYWORD_TOKEN,
-        IDENTIFIER_TOKEN,
-        PUNCTUATOR_TOKEN,
-        NUMERIC_LITERAL_TOKEN,
-        BOOLEAN_LITERAL_TOKEN,
-        CHARACTER_LITERAL_TOKEN,
-        STRING_LITERAL_TOKEN,
-        NULL_LITERAL_TOKEN,
-        EOF_TOKEN
-    } type;
-
-    joint_string_t * value;
+typedef struct joint_node {
+    enum joint_node_type type;
+    int childrens_length;
+    struct joint_node_children ** childrens;
 
     joint_source_file_position_t * start_position;
     joint_source_file_position_t * end_position;
-} joint_token_t;
+} joint_node_t;
 
-typedef struct joint_tokenizer {
-    joint_source_file_t * source_file;
+typedef struct joint_node_children {
+    enum {
+        NODE_CHILDREN,
+        NUMBER_CHILDREN,
+        BOOLEAN_CHILDREN,
+        CHARACTER_CHILDREN,
+        STRING_CHILDREN,
+        NULL_CHILDREN
+    } type;
 
-    int current_position;
-    int current_line_number;
-    int current_line_start_position;
+    char * name;
 
-    int tokens_length;
-    joint_token_t ** tokens;
-} joint_tokenizer_t;
+    union {
+        joint_node_t * node;
+        long double number;
+        bool boolean;
+        char character;
+        char * string;
+    };
+} joint_node_children_t;
 
-joint_tokenizer_t * joint_tokenizer_alloc(joint_source_file_t * source_file);
+typedef struct joint_parser {
+    joint_tokenizer_t * tokenizer;
+    int current_token;
+    joint_token_t * next_token;
+    joint_node_t * program;
+} joint_parser_t;
 
-void joint_tokenizer_tokenize(joint_tokenizer_t * tokenizer);
+joint_parser_t * joint_parser_alloc(joint_tokenizer_t * tokenizer);
 
-void joint_tokeinzer_print(const joint_tokenizer_t * tokenizer);
+void joint_parser_parse(joint_parser_t * parser);
 
-void joint_tokenizer_free(joint_tokenizer_t * tokenizer);
+void joint_parser_print(const joint_parser_t * parser);
+
+void joint_parser_free(joint_parser_t * parser);
 
 #endif

@@ -7,7 +7,8 @@
                 "src/joint.c",
                 "src/source_file.c",
                 "src/string.c",
-                "src/tokenizer.c"
+                "src/tokenizer.c",
+                "src/parser.c"
             ]
         }
     ]
