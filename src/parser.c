@@ -35,10 +35,23 @@ static const char * joint_node_type_names[] = {
     "VARIABLE_DECLARATION_NODE"
 };
 
-static joint_node_t * joint_node_alloc(enum joint_node_type type) {
+static joint_source_file_position_t * joint_node_clone_position(const joint_source_file_position_t * position) {
+    joint_source_file_position_t * cloned_position = malloc(sizeof(joint_source_file_position_t));
+    assert(cloned_position);
+    cloned_position->path = malloc(sizeof(char) * (strlen(position->path) + 1));
+    assert(cloned_position->path);
+    strcpy(cloned_position->path, position->path);
+    cloned_position->position = position->position;
+    cloned_position->line = position->line;
+    cloned_position->column = position->column;
+    return cloned_position;
+}
+
+static joint_node_t * joint_node_alloc(enum joint_node_type type, const joint_source_file_position_t * start_position) {
     joint_node_t * node = malloc(sizeof(joint_node_t));
     node->type = type;
     node->childrens_length = 0;
+    node->start_position = joint_node_clone_position(start_position);
     return node;
 }
 
@@ -116,6 +129,8 @@ static void joint_node_print(const joint_node_t * root, int level) {
     indent[level * 4] = '\0';
 
     printf("%sTYPE: %s\n", indent, joint_node_type_names[root->type]);
+    printf("%sSTART: p %d l %d c %d\n", indent, root->start_position->position, root->start_position->line, root->start_position->column);
+    printf("%sEND: p %d l %d c %d\n", indent, root->end_position->position, root->end_position->line, root->end_position->column);
 
     if (root->childrens_length > 0) {
         printf("%sCHILDRENS:\n", indent);
@@ -183,6 +198,10 @@ static void joint_node_free(joint_node_t * node) {
         free(node->childrens);
     }
 
+    free(node->start_position->path);
+    free(node->start_position);
+    free(node->end_position->path);
+    free(node->end_position);
     free(node);
 }
 
@@ -213,7 +232,8 @@ static void joint_parser_expect_punctuator(joint_parser_t * parser, const char *
 
 static joint_node_t * joint_parser_parse_comment(joint_parser_t * parser) {
     assert(parser->next_token->type == COMMENT_TOKEN);
-    joint_node_t * comment = joint_node_alloc(COMMENT_NODE);
+    joint_node_t * comment = joint_node_alloc(COMMENT_NODE, parser->next_token->start_position);
+    comment->end_position = joint_node_clone_position(parser->next_token->end_position);
     joint_node_attach_string(comment, "value", parser->next_token->value->data);
     joint_parser_get_next_token(parser);
     return comment;
@@ -221,46 +241,45 @@ static joint_node_t * joint_parser_parse_comment(joint_parser_t * parser) {
 
 static joint_node_t * joint_parser_parse_identifier(joint_parser_t * parser) {
     assert(parser->next_token->type == IDENTIFIER_TOKEN);
-    joint_node_t * comment = joint_node_alloc(IDENTIFIER_NODE);
-    joint_node_attach_string(comment, "value", parser->next_token->value->data);
+    joint_node_t * indentifier = joint_node_alloc(IDENTIFIER_NODE, parser->next_token->start_position);
+    indentifier->end_position = joint_node_clone_position(parser->next_token->end_position);
+    joint_node_attach_string(indentifier, "value", parser->next_token->value->data);
     joint_parser_get_next_token(parser);
-    return comment;
+    return indentifier;
 }
 
 static joint_node_t * joint_parser_parse_literal(joint_parser_t * parser) {
-    joint_node_t * literal = joint_node_alloc(LITERAL_NODE);
+    joint_node_t * literal = joint_node_alloc(LITERAL_NODE, parser->next_token->start_position);
+    literal->end_position = joint_node_clone_position(parser->next_token->end_position);
     long double value;
 
     switch (parser->next_token->type) {
         case NUMERIC_LITERAL_TOKEN:
             sscanf(parser->next_token->value->data, "%Lf", &value);
             joint_node_attach_number(literal, "value", value);
-            joint_parser_get_next_token(parser);
             break;
 
         case BOOLEAN_LITERAL_TOKEN:
             joint_node_attach_boolean(literal, "value", strcmp(parser->next_token->value->data, "true") == 0);
-            joint_parser_get_next_token(parser);
             break;
 
         case CHARACTER_LITERAL_TOKEN:
             joint_node_attach_character(literal, "value", parser->next_token->value->data[0]);
-            joint_parser_get_next_token(parser);
             break;
 
         case STRING_LITERAL_TOKEN:
             joint_node_attach_string(literal, "value", parser->next_token->value->data);
-            joint_parser_get_next_token(parser);
             break;
 
         case NULL_LITERAL_TOKEN:
             joint_node_attach_null(literal, "value");
-            joint_parser_get_next_token(parser);
             break;
 
         default:
             assert(NULL);
     }
+
+    joint_parser_get_next_token(parser);
 
     return literal;
 }
@@ -283,7 +302,7 @@ static joint_node_t * joint_parser_parse_primary_expression(joint_parser_t * par
 }
 
 static joint_node_t * joint_parser_parse_call_expression(joint_parser_t * parser, joint_node_t * callee) {
-    joint_node_t * call_expression = joint_node_alloc(CALL_EXPRESSION_NODE);
+    joint_node_t * call_expression = joint_node_alloc(CALL_EXPRESSION_NODE, callee->start_position);
     joint_node_attach_node(call_expression, "callee", callee);
 
     joint_parser_expect_punctuator(parser, "(");
@@ -303,6 +322,8 @@ static joint_node_t * joint_parser_parse_call_expression(joint_parser_t * parser
         }
     }
 
+    call_expression->end_position = joint_node_clone_position(parser->next_token->end_position);
+
     joint_parser_expect_punctuator(parser, ")");
 
     return call_expression;
@@ -315,16 +336,20 @@ static joint_node_t * joint_parser_parse_left_hand_side_expression_allow_call(jo
         expression = joint_parser_parse_call_expression(parser, expression);
     }
 
+    free(expression->end_position->path);
+    free(expression->end_position);
+    expression->end_position = joint_node_clone_position(parser->next_token->end_position);
+
     joint_parser_expect_punctuator(parser, ";");
 
     return expression;
 }
 
 static joint_node_t * joint_parser_parse_import_declaration(joint_parser_t * parser) {
+    joint_node_t * import_declaration = joint_node_alloc(IMPORT_DECLARATION_NODE, parser->next_token->start_position);
+
     joint_parser_expect_keyword(parser, "import");
     joint_parser_expect_punctuator(parser, "{");
-
-    joint_node_t * import_declaration = joint_node_alloc(IMPORT_DECLARATION_NODE);
 
     while (true) {
         joint_node_t * specifier = joint_parser_parse_identifier(parser);
@@ -344,15 +369,17 @@ static joint_node_t * joint_parser_parse_import_declaration(joint_parser_t * par
     joint_node_t * source = joint_parser_parse_literal(parser);
     joint_node_attach_node(import_declaration, "source", source);
 
+    import_declaration->end_position = joint_node_clone_position(parser->next_token->end_position);
+
     joint_parser_expect_punctuator(parser, ";");
 
     return import_declaration;
 }
 
 static joint_node_t * joint_parser_parse_variable_declaration(joint_parser_t * parser) {
-    joint_parser_expect_keyword(parser, "let");
+    joint_node_t * variable_declaration = joint_node_alloc(VARIABLE_DECLARATION_NODE, parser->next_token->start_position);
 
-    joint_node_t * variable_declaration = joint_node_alloc(VARIABLE_DECLARATION_NODE);
+    joint_parser_expect_keyword(parser, "let");
 
     joint_node_t * id = joint_parser_parse_identifier(parser);
     joint_node_attach_node(variable_declaration, "id", id);
@@ -373,6 +400,8 @@ static joint_node_t * joint_parser_parse_variable_declaration(joint_parser_t * p
 
     joint_node_t * init = joint_parser_parse_primary_expression(parser);
     joint_node_attach_node(variable_declaration, "init", init);
+
+    variable_declaration->end_position = joint_node_clone_position(parser->next_token->end_position);
 
     joint_parser_expect_punctuator(parser, ";");
 
@@ -396,26 +425,32 @@ static joint_node_t * joint_parser_parse_program_element(joint_parser_t * parser
 }
 
 static joint_node_t * joint_parser_parse_program(joint_parser_t * parser) {
-    joint_node_t * program = joint_node_alloc(PROGRAM_NODE);
+    joint_node_t * program = joint_node_alloc(PROGRAM_NODE, parser->next_token->start_position);
+    joint_node_t * program_element = NULL;
 
-    while (parser->next_token != NULL && parser->next_token->type != EOF_TOKEN) {
-        joint_node_t * program_element = joint_parser_parse_program_element(parser);
+    while (parser->next_token->type != EOF_TOKEN) {
+        program_element = joint_parser_parse_program_element(parser);
         joint_node_attach_node(program, "body", program_element);
+    }
+
+    if (program_element == NULL) {
+        program->end_position = joint_node_clone_position(parser->next_token->end_position);
+    } else {
+        program->end_position = joint_node_clone_position(program_element->end_position);
     }
 
     return program;
 }
 
 joint_parser_t * joint_parser_alloc(joint_tokenizer_t * tokenizer) {
+    assert(tokenizer->tokens_length > 0);
+
     joint_parser_t * parser = malloc(sizeof(joint_parser_t));
     assert(parser);
 
     parser->tokenizer = tokenizer;
     parser->current_token = 0;
-
-    if (tokenizer->tokens_length > 0) {
-        parser->next_token = tokenizer->tokens[0];
-    }
+    parser->next_token = tokenizer->tokens[0];
 
     return parser;
 }

@@ -292,10 +292,10 @@ static joint_token_t * joint_tokenizer_lex(joint_tokenizer_t * tokenizer) {
     joint_token_t * token = malloc(sizeof(joint_token_t));
     assert(token);
 
+    joint_tokenizer_skip_whitespaces(tokenizer);
+
     token->value = joint_string_alloc(8);
     token->start_position = joint_tokenizer_fixate_position(tokenizer);
-
-    joint_tokenizer_skip_whitespaces(tokenizer);
 
     if (tokenizer->current_position >= tokenizer->source_file->content->length) {
         token->type = EOF_TOKEN;
