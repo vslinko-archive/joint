@@ -1,0 +1,14 @@
+# This example implements all the functions available in the Joint language.
+
+# Imports
+import {printLine} from "io";
+
+# Built-in types
+let a:Number = 1;      # Numeric variable
+let b:Boolean = true;  # Boolean variable
+let c:Character = 'a'; # Character variable
+let d:String = "1";    # String variable
+let e:String? = null;  # Optional string variable
+
+# Function calls
+printLine(d);
